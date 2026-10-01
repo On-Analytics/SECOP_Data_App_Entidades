@@ -15,8 +15,15 @@ this machine's Claude memory — read `dataapps-transparency-concept.md` and
   github.com/On-Analytics/SECOP_Data_App_Entidades (`main`).
 - **Entity page built:** `app/entidad/[nit]/page.tsx` (static, one per entity
   in `data/entidades.json`) reads `data/snapshots/<nit>.json` via
-  `lib/snapshot.ts`. Only JEP has a snapshot so far (pulled by hand through
-  the MCP tools, same calls/args as the script); the rest show "sin datos".
+  `lib/snapshot.ts`. All 9 snapshots exist locally (gitignored), pulled
+  2026-09-30 by Claude through its own secop-colombia-prod MCP connection
+  with the same calls/args as the script — a stopgap until the script's
+  login works. Metroparques and Empoaguas have 0 signed contracts in the data.
+- **MCP data issues the page works around (worth fixing server-side):**
+  `sancionado_reincidente` joins on placeholder documents ("0", "1") and
+  includes a test entity ("Z ENTIDAD DE PRUEBA"); `perfil_entidad` totals
+  include additions the server itself flags as capture errors (AMVA's total
+  is ~65% one bad contract).
 - **Entities (9 confirmed, in `data/entidades.json`):** JEP, Unidad para las
   Víctimas, Área Metropolitana del Valle de Aburrá, Parque de las Aguas
   (Metroparques), Municipio de Puerto Gaitán, Aerocivil, Empoaguas E.S.P.,
