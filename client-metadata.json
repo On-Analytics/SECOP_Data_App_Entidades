@@ -1,0 +1,8 @@
+{
+  "client_id": "https://REPLACE-WITH-THE-URL-THIS-FILE-IS-SERVED-FROM/client-metadata.json",
+  "client_name": "SECOP Data App - Entidades (refresh job)",
+  "redirect_uris": ["http://localhost:8090/callback"],
+  "grant_types": ["authorization_code", "refresh_token"],
+  "response_types": ["code"],
+  "token_endpoint_auth_method": "none"
+}

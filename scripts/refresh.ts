@@ -12,6 +12,7 @@
 import { readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join } from "node:path";
 import { CallToolResultSchema } from "@modelcontextprotocol/sdk/types.js";
+import type { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { connectToSecopMcp } from "../lib/mcp-client.js";
 
 const MCP_URL = process.env.MCP_URL;
@@ -46,12 +47,12 @@ const entidades: Entidad[] = JSON.parse(readFileSync(entidadesPath, "utf-8"));
 const snapshotsDir = join(process.cwd(), "data", "snapshots");
 mkdirSync(snapshotsDir, { recursive: true });
 
-async function callTool(client: any, name: string, args: Record<string, unknown>) {
+async function callTool(client: Client, name: string, args: Record<string, unknown>) {
   const result = await client.request(
     { method: "tools/call", params: { name, arguments: args } },
     CallToolResultSchema,
   );
-  const textContent = result.content?.find((c: any) => c.type === "text");
+  const textContent = result.content?.find((c) => c.type === "text");
   // Tool-level failures come back as a normal result flagged isError, not a
   // thrown exception — surface them so they land in `errores`, not as data.
   if (result.isError) {

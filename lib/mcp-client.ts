@@ -78,6 +78,7 @@ export async function connectToSecopMcp(serverUrl: string): Promise<Client> {
       console.log(`\nOpening browser to log in with your SECOP Analista account:\n  ${authorizationUrl.toString()}\n`);
       openBrowser(authorizationUrl.toString());
     },
+    process.env.MCP_CLIENT_METADATA_URL || undefined,
   );
 
   const client = new Client({ name: "secop-dataapp-refresh", version: "0.1.0" }, { capabilities: {} });

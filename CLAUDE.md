@@ -11,8 +11,12 @@ this machine's Claude memory — read `dataapps-transparency-concept.md` and
 
 ## Current state (as of 2026-09-30)
 
-- **Scaffolded:** Next.js (TypeScript, Tailwind, App Router). No pages built
-  yet — only the data-refresh side exists so far.
+- **Scaffolded:** Next.js (TypeScript, Tailwind, App Router). Pushed to
+  github.com/On-Analytics/SECOP_Data_App_Entidades (`main`).
+- **Entity page built:** `app/entidad/[nit]/page.tsx` (static, one per entity
+  in `data/entidades.json`) reads `data/snapshots/<nit>.json` via
+  `lib/snapshot.ts`. Only JEP has a snapshot so far (pulled by hand through
+  the MCP tools, same calls/args as the script); the rest show "sin datos".
 - **Entities (9 confirmed, in `data/entidades.json`):** JEP, Unidad para las
   Víctimas, Área Metropolitana del Valle de Aburrá, Parque de las Aguas
   (Metroparques), Municipio de Puerto Gaitán, Aerocivil, Empoaguas E.S.P.,
@@ -25,7 +29,11 @@ this machine's Claude memory — read `dataapps-transparency-concept.md` and
   `.mcp-auth.json`, gitignored), then for each entity calls `perfil_entidad`,
   `detectar_anomalias` (`detector: "todos"`), and `procesos_abiertos`
   against `MCP_URL`, writing one JSON file per entity to `data/snapshots/`.
-  **Not yet run end-to-end** — needs a human to complete the browser login.
+  **Blocked:** the AuthKit server has no dynamic client registration, so the
+  login fails before the browser opens. It does accept URL-based client ids
+  (Client ID Metadata Documents): host `client-metadata.json` at a public
+  HTTPS URL (its `client_id` must equal that URL) and set
+  `MCP_CLIENT_METADATA_URL` — or enable DCR in the WorkOS dashboard.
 - **Deliberately deferred:** the "contract growth after signing"
   (`modificaciones_de_contrato`) signal — needs enumerating contract ids per
   entity first, heavier, phase 2.
@@ -36,10 +44,11 @@ this machine's Claude memory — read `dataapps-transparency-concept.md` and
 
 ## Next steps, roughly in order
 
-1. Run `npm run refresh` (copy `.env.example` → `.env` first) and confirm it
-   actually pulls data — this hasn't been verified live yet.
+1. Unblock `npm run refresh` (see Blocked above), then run it to fill all 9
+   snapshots.
 2. Decide the snapshot-store DB (Vercel Postgres / Neon / Supabase — not
    chosen yet) and move off local JSON files.
-3. Build one entity page (pick one, e.g. JEP) reading from a snapshot to
-   validate the page-content plan in memory before templating all 9.
+3. Fill page gaps vs. the memory plan: 12-month vs. prior-12 headline,
+   modalidad mix over time, seasonality (need `serie_temporal` in the
+   snapshot), and contract growth (`modificaciones_de_contrato`).
 4. Wire up the chat (Luna), scoped per entity.

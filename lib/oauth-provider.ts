@@ -44,6 +44,12 @@ export class FilePersistedOAuthClientProvider implements OAuthClientProvider {
     private _redirectUrl: string,
     private _clientMetadata: OAuthClientProvider["clientMetadata"],
     private onRedirect: (url: URL) => void,
+    /**
+     * HTTPS URL of a hosted Client ID Metadata Document. The SECOP AuthKit
+     * server doesn't offer dynamic client registration, but it does accept
+     * URL-based client ids (SEP-991) — when set, this URL *is* the client_id.
+     */
+    readonly clientMetadataUrl?: string,
   ) {
     this.store = loadStoredAuth();
   }
