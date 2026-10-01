@@ -78,6 +78,8 @@ async function main() {
     const perfil = await callTool(client, "perfil_entidad", {
       nit_entidad: entidad.nit,
       desde: DESDE,
+      // The page shows the top 15 suppliers; the server default is 50.
+      limite: 15,
     }).catch((e) => {
       errores.push(`perfil_entidad: ${e.message}`);
       return null;

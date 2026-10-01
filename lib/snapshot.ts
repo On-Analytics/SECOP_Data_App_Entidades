@@ -23,7 +23,8 @@ export interface Proveedor {
 
 export interface Categoria {
   codigo: string;
-  nombre: string;
+  /** null for contracts with no valid UNSPSC code ("UNSPEC"). */
+  nombre: string | null;
   contratos: number;
   valor: number;
 }
@@ -33,14 +34,15 @@ export interface Perfil {
   departamento?: string;
   orden_administrativo?: string;
   rama?: string;
+  /** All but `cantidad` come back null when the entity has no signed contracts. */
   contratos?: {
     cantidad: number;
-    valor_total: number;
-    valor_mediano: number;
+    valor_total: number | null;
+    valor_mediano: number | null;
     proveedores_distintos: number;
-    desde: string;
-    hasta: string;
-    valor_pagado_total?: number;
+    desde: string | null;
+    hasta: string | null;
+    valor_pagado_total?: number | null;
   };
   principales_proveedores?: Proveedor[];
   principales_categorias?: Categoria[];
@@ -76,6 +78,14 @@ export interface Hallazgo {
   primera_sancion_en_firme?: string;
   sanciones?: number;
   sancionado_por?: string;
+  // posible_fraccionamiento
+  documento_proveedor?: string;
+  categoria?: string;
+  contratos?: number;
+  valor_conjunto?: number;
+  primera_firma?: string;
+  ultima_firma?: string;
+  dias_entre_extremos?: number;
   probable_error_de_captura?: boolean;
 }
 
@@ -97,11 +107,13 @@ export interface Anomalias {
 }
 
 export interface ProcesoAbierto {
-  id_proceso?: string;
+  id?: string;
   objeto?: string;
   modalidad?: string;
+  tipo_contrato?: string;
   presupuesto?: number;
-  fecha_cierre?: string;
+  fecha_publicacion?: string;
+  cierre_recepcion?: string;
   url?: string;
 }
 

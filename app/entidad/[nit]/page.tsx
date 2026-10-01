@@ -69,6 +69,15 @@ export default async function EntidadPage({ params }: PageProps<"/entidad/[nit]"
 function Contenido({ snapshot }: { snapshot: Snapshot }) {
   const { entidad, perfil, anomalias, procesos_abiertos: abiertos } = snapshot;
   const c = perfil?.contratos;
+  const total = c?.valor_total ?? 0;
+  const hayContratos = !!c && c.cantidad > 0 && total > 0;
+  const resultados = anomalias?.resultados?.map(limpiarSanciones);
+
+  // Additions the server itself flags as data-entry errors still count in
+  // perfil's totals; when they're a big slice, the headline is misleading.
+  const inflado = (resultados?.find((r) => r.detector === "adicion_excesiva")?.hallazgos ?? [])
+    .filter((h) => h.probable_error_de_captura)
+    .reduce((s, h) => s + (h.adicionado ?? 0), 0);
 
   const advertencias = Array.from(
     new Set([
@@ -98,7 +107,24 @@ function Contenido({ snapshot }: { snapshot: Snapshot }) {
         )}
       </header>
 
-      {c && (
+      {!hayContratos && (
+        <p className="rounded-lg border border-line p-4 text-muted">
+          No aparecen contratos firmados de esta entidad desde {fecha(snapshot.desde)} en los datos. Eso no
+          significa que no haya contratado: puede que no publique sus contratos en SECOP o que los tramite bajo
+          otro NIT.
+        </p>
+      )}
+
+      {hayContratos && inflado / total > 0.05 && (
+        <p className="rounded-lg border border-warn/40 bg-warn/10 p-4 text-sm">
+          <strong>Ojo con el valor total.</strong> Incluye {pesos(inflado)} en adiciones que SECOP marca como
+          probable error de captura ({porcentaje(inflado / total)} del total), por ejemplo un dígito de más en una
+          modificación. Las cifras, proveedores y categorías de esta página están inflados por ese registro.
+          Ver «Contratos que crecieron más de lo normal» abajo.
+        </p>
+      )}
+
+      {hayContratos && c && (
         <section aria-labelledby="cifras">
           <h2 id="cifras" className="sr-only">
             Cifras principales
@@ -116,9 +142,11 @@ function Contenido({ snapshot }: { snapshot: Snapshot }) {
         </section>
       )}
 
-      {anomalias?.resultados && <Senales anomalias={anomalias.resultados} porDetector={anomalias.hallazgos_por_detector} />}
+      {hayContratos && resultados && (
+        <Senales anomalias={resultados} porDetector={anomalias?.hallazgos_por_detector} />
+      )}
 
-      {perfil?.modalidades && c && (
+      {hayContratos && perfil?.modalidades && (
         <Seccion titulo="Cómo contrata" id="modalidades">
           <p className="mb-5 text-muted">
             Modalidad de selección, por valor. La contratación directa y los regímenes especiales no exigen
@@ -130,25 +158,25 @@ function Contenido({ snapshot }: { snapshot: Snapshot }) {
               valor: m.valor,
               detalle: `${numero(m.contratos)} contratos`,
             }))}
-            total={c.valor_total}
+            total={total}
           />
         </Seccion>
       )}
 
-      {perfil?.principales_proveedores && c && (
-        <Proveedores proveedores={perfil.principales_proveedores} total={c.valor_total} />
+      {hayContratos && perfil?.principales_proveedores && (
+        <Proveedores proveedores={perfil.principales_proveedores} total={total} />
       )}
 
-      {perfil?.principales_categorias && c && (
+      {hayContratos && perfil?.principales_categorias && (
         <Seccion titulo="En qué gasta" id="categorias">
           <p className="mb-5 text-muted">Las diez categorías (UNSPSC) con más valor contratado.</p>
           <Barras
             filas={perfil.principales_categorias.map((cat) => ({
-              etiqueta: cat.nombre,
+              etiqueta: cat.nombre ?? "Sin categoría UNSPSC válida",
               valor: cat.valor,
               detalle: `${numero(cat.contratos)} contratos`,
             }))}
-            total={c.valor_total}
+            total={total}
           />
         </Seccion>
       )}
@@ -158,11 +186,11 @@ function Contenido({ snapshot }: { snapshot: Snapshot }) {
           {abiertos.procesos && abiertos.procesos.length > 0 ? (
             <ul className="divide-y divide-line">
               {abiertos.procesos.map((p, i) => (
-                <li key={p.id_proceso ?? i} className="py-3">
-                  <Enlace url={p.url}>{p.objeto ?? p.id_proceso}</Enlace>
+                <li key={p.id ?? i} className="py-3">
+                  <Enlace url={p.url}>{p.objeto ?? p.id}</Enlace>
                   <p className="text-sm text-muted">
                     {p.modalidad} · {pesos(p.presupuesto)}
-                    {p.fecha_cierre && <> · cierra {fecha(p.fecha_cierre)}</>}
+                    {p.cierre_recepcion && <> · recibe ofertas hasta el {fecha(p.cierre_recepcion)}</>}
                   </p>
                 </li>
               ))}
@@ -188,7 +216,26 @@ function Contenido({ snapshot }: { snapshot: Snapshot }) {
   );
 }
 
-function Senales({ anomalias, porDetector }: { anomalias: ResultadoDetector[]; porDetector?: number }) {
+type Resultado = ResultadoDetector & { descartados?: number };
+
+/**
+ * sancionado_reincidente matches contractors to sanctions by document
+ * number, and SECOP fills unknown documents with placeholders ("0", "1").
+ * That joins unrelated consortia to someone else's sanction — and a test
+ * entity ("Z ENTIDAD DE PRUEBA") lives in the sanctions table too. On a
+ * page journalists may cite, a false "sanctioned" label is worse than a
+ * missing one, so those rows are dropped and counted.
+ */
+function limpiarSanciones(r: ResultadoDetector): Resultado {
+  if (r.detector !== "sancionado_reincidente") return r;
+  const validos = r.hallazgos.filter(
+    (h) => /^\d{6,}$/.test(h.documento ?? "") && !/entidad de prueba/i.test(h.sancionado_por ?? ""),
+  );
+  const descartados = r.hallazgos.length - validos.length;
+  return { ...r, hallazgos: validos, total_hallazgos: r.total_hallazgos - descartados, descartados };
+}
+
+function Senales({ anomalias, porDetector }: { anomalias: Resultado[]; porDetector?: number }) {
   const orden = Object.keys(DETECTORES);
   const resultados = [...anomalias].sort((a, b) => orden.indexOf(a.detector) - orden.indexOf(b.detector));
   const conHallazgos = resultados.filter((r) => r.total_hallazgos > 0);
@@ -210,15 +257,21 @@ function Senales({ anomalias, porDetector }: { anomalias: ResultadoDetector[]; p
       {sinHallazgos.length > 0 && (
         <p className="mt-8 text-sm text-muted">
           Sin hallazgos con los umbrales aplicados:{" "}
-          {sinHallazgos.map((r) => DETECTORES[r.detector] ?? r.que_busca).join(" · ")}. Que un detector no
-          encuentre nada no descarta el patrón; ver la nota de cobertura de cada uno.
+          {sinHallazgos
+            .map(
+              (r) =>
+                (DETECTORES[r.detector] ?? r.que_busca) +
+                (r.descartados ? ` (se omitieron ${r.descartados} coincidencias con documento de relleno o entidad de prueba)` : ""),
+            )
+            .join(" · ")}
+          . Que un detector no encuentre nada no descarta el patrón.
         </p>
       )}
     </Seccion>
   );
 }
 
-function Detector({ resultado: r, porDetector }: { resultado: ResultadoDetector; porDetector?: number }) {
+function Detector({ resultado: r, porDetector }: { resultado: Resultado; porDetector?: number }) {
   const reales = r.hallazgos.filter((h) => !h.probable_error_de_captura);
   const errores = r.hallazgos.filter((h) => h.probable_error_de_captura);
   const mostrados = r.hallazgos.length;
@@ -254,6 +307,14 @@ function Detector({ resultado: r, porDetector }: { resultado: ResultadoDetector;
             <p className="mt-2 text-muted">{sinMarkdown(r.cobertura.errores_de_captura)}</p>
           )}
         </details>
+      )}
+
+      {!!r.descartados && (
+        <p className="mt-3 text-sm text-muted">
+          Se omitieron {r.descartados} {r.descartados === 1 ? "coincidencia" : "coincidencias"} que el registro
+          cruza por un número de documento de relleno o con una entidad de prueba: no identifican a un
+          contratista real.
+        </p>
       )}
 
       {r.total_hallazgos > mostrados && (
@@ -304,6 +365,17 @@ function FilaHallazgo({ detector, h }: { detector: string; h: Hallazgo }) {
         </>
       );
       break;
+    case "posible_fraccionamiento":
+      detalle = (
+        <>
+          NIT {h.documento_proveedor} · {h.contratos} contratos de la misma categoría ({h.categoria}) firmados
+          {h.dias_entre_extremos === 0
+            ? ` el mismo día (${fecha(h.primera_firma)})`
+            : ` en ${h.dias_entre_extremos} días (${fecha(h.primera_firma)} – ${fecha(h.ultima_firma)})`}{" "}
+          · suman {pesos(h.valor_conjunto)}
+        </>
+      );
+      break;
     case "sancionado_reincidente":
       detalle = (
         <>
@@ -315,7 +387,7 @@ function FilaHallazgo({ detector, h }: { detector: string; h: Hallazgo }) {
       break;
   }
 
-  const titulo = detector === "sancionado_reincidente" ? h.proveedor : (h.objeto ?? h.proveedor);
+  const titulo = h.objeto ?? h.proveedor;
 
   return (
     <li className="py-3">

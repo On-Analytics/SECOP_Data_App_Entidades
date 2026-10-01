@@ -24,7 +24,7 @@ export default function Home() {
               >
                 <span className="font-medium">{nombre}</span>
                 <span className="text-sm tabular-nums text-muted">
-                  {c ? `${pesos(c.valor_total)} · ${numero(c.cantidad)} contratos` : "Sin datos todavía"}
+                  {!snapshot ? "Sin datos todavía" : c?.cantidad ? `${pesos(c.valor_total)} · ${numero(c.cantidad)} contratos` : "Sin contratos en los datos"}
                 </span>
               </Link>
             </li>
